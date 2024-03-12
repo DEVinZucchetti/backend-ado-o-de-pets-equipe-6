@@ -11,6 +11,8 @@ class Adoption extends Model
 
     protected $fillable = ['name', 'email', 'cpf', 'contact', 'observations', 'status', 'pet_id'];
 
+    protected $hidden = ['created_at','updated_at'];
+
     public function pet() {
         return $this->hasOne(Pet::class, 'id', 'pet_id');
     }
