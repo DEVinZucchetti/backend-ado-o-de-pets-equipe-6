@@ -27,11 +27,11 @@ class AdoptionTest extends TestCase
         Pet::factory(20)->create(['race_id' => $race->id, 'specie_id' => $specie->id]);
 
         $body = [
-            'name' => 'Henrique',
-            'contact' => '85 99181-1111',
-            'email' => 'h@gmail.com',
-            'cpf' => '07471899352',
-            'observations' => 'Quero um gato pra pegar rato',
+            'name' => 'Taisa',
+            'contact' => '24 15487-9495',
+            'email' => 'i@gmail.com',
+            'cpf' => '888.777.666-55',
+            'observations' => '...',
             'pet_id' => $pet->id
         ];
 
@@ -61,22 +61,6 @@ class AdoptionTest extends TestCase
 
         $response = $this->actingAs($user)->get('/api/adoptions');
         $response->assertStatus(200);
-
-        // VER qual o problema
-        /*
-        $response->assertJsonStructure([
-            '*' => [
-                'id' => true,
-                'name' => true,
-                'email' => true,
-                'cpf' => true,
-                'contact' => true,
-                'observations' =>  true,
-                'status' => true,
-                'pet_id' => true
-            ]
-        ]);
-        */
     }
 
     public function test_user_can_add_realized_adoption(): void
@@ -92,16 +76,14 @@ class AdoptionTest extends TestCase
         $this->assertDatabaseHas('adoptions', ['id' => $adoption->id, 'status' => 'PENDENTE']);
         $response = $this->actingAs($user)->post('/api/adoptions/realized', ['adoption_id' => $adoption->id]);
 
-        /* Verifica a mudança de status */
         $this->assertDatabaseHas('adoptions', ['id' => $adoption->id, 'status' => 'APROVADO']);
-        /* Verifica a criação da pessoa e do cliente */
+
         $this->assertDatabaseHas('peoples', ['email' => $adoption->email, 'cpf' => $adoption->cpf]);
+
         $people = People::query()->where(['cpf' => $adoption->cpf])->first();
         $this->assertDatabaseHas('clients', ['people_id' => $people->id]);
-        /* Verifica se pet recebeu o id do cliente */
         $people->load('client');
         $this->assertDatabaseHas('pets', ['id' => $pet->id, 'client_id' => $people->client->id]);
-        /* Verifica se criou a solicitação com o id do cliente vinculado */
         $this->assertDatabaseHas('solicitations_documents', ['client_id' =>  $people->client->id]);
 
         $response->assertStatus(201);

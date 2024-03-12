@@ -2,15 +2,20 @@
 
 namespace App\Http\Controllers;
 
-use App\Mail\SendApproveAdoption;
-use App\Mail\SendWelcomePet;
+use App\Mail\SendDocuments;
 use App\Models\Adoption;
 use App\Models\Client;
+use App\Models\File;
 use App\Models\People;
 use App\Models\Pet;
+use App\Models\SolicitationDocument;
 use App\Traits\HttpResponses;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+
 use Symfony\Component\HttpFoundation\Response;
 
 class AdoptionController extends Controller
@@ -21,17 +26,21 @@ class AdoptionController extends Controller
     {
         try {
 
+            // pegar os dados que foram enviados via query params
             $filters = $request->query();
 
+            // inicializa uma query
             $pets = Pet::query()
                 ->select(
                     'id',
                     'pets.name as pet_name',
                     'pets.age as age'
                 )
+                #->with('race') // traz todas as colunas
                 ->where('client_id', null);
 
 
+            // verifica se filtro
             if ($request->has('name') && !empty($filters['name'])) {
                 $pets->where('name', 'ilike', '%' . $filters['name'] . '%');
             }
@@ -72,44 +81,36 @@ class AdoptionController extends Controller
     public function store(Request $request)
     {
         try {
-            $data = $request->all();
+            $data = $request->all(); // pegar o body
 
             $request->validate([
                 'name' => 'string|required|max:255',
-                'email' => 'string|required|email|max:255',
-                'cpf' => 'string|required|max:14|regex:/^\d{3}\.\d{3}\.\d{3}-\d{2}$/',
                 'contact' => 'string|required|max:20',
+                'email' => 'string|required',
+                'cpf' => 'string|required',
                 'observations' => 'string|required',
                 'pet_id' => 'integer|required',
-            ]);
+            ]); // valida os dados
 
             $adoption = Adoption::create([...$data, 'status' => 'PENDENTE']);
-
             return $adoption;
-
         } catch (\Exception $exception) {
             return $this->error($exception->getMessage(), Response::HTTP_BAD_REQUEST);
         }
     }
 
-    public function getAdoptions(Request $request)
+    public function getAdoptions()
     {
-        $search = $request->input('search');
-
-        $adoptions = Adoption::query()
-        ->with('pet')
-        ->where('name', 'ilike', "%$search%")
-        ->orWhere('email', 'ilike', "%$search%")
-        ->orWhere('contact', 'ilike', "%$search%")
-        ->orWhere('status', 'ilike', "%$search%");
-
-        return $adoptions->get();
+        $adoptions = Adoption::query()->with('pet')->get();
+        return $adoptions;
     }
 
     public function approve(Request $request)
     {
 
         try {
+
+            DB::beginTransaction();
 
             $data = $request->all();
 
@@ -140,15 +141,51 @@ class AdoptionController extends Controller
             $pet->update(['client_id' => $client->id]);
             $pet->save();
 
-            $email = $adoption->email;
+            $solicitation = SolicitationDocument::create([
+                'client_id' => $client->id
+            ]);
 
-            Mail::to($email)
-            ->send(new SendApproveAdoption($adoption, $pet));
+            //  Mail::to($people->email, $people->name)
+            //      ->send(new SendDocuments($people->name, $solicitation->id));
+
+            DB::commit();
 
             return $client;
-
         } catch (\Exception $exception) {
+            DB::rollBack();
             return $this->error($exception->getMessage(), Response::HTTP_BAD_REQUEST);
         }
+    }
+
+    public function upload(Request $request)
+    {
+
+        $file = $request->file('file');
+        $description =  $request->input('description');
+        $key =  $request->input('key');
+        $id =  $request->input('id');
+
+        $slugName = Str::of($description)->slug();
+        $fileName = $slugName . '.' . $file->extension();
+
+        $pathBucket = Storage::disk('s3')->put('documentos', $file);
+        $fullPathFile = Storage::disk('s3')->url($pathBucket);
+
+        $file = File::create(
+            [
+                'name' => $fileName,
+                'size' => $file->getSize(),
+                'mime' => $file->extension(),
+                'url' => $fullPathFile
+            ]
+        );
+
+        $solicitation = SolicitationDocument::find($id);
+
+        if(!$solicitation) return $this->error('Dado não encontrado', Response::HTTP_NOT_FOUND);
+
+        $solicitation->update([$key => $file->id]);
+
+        return ['message' => 'Arquivo criado com sucesso'];
     }
 }
