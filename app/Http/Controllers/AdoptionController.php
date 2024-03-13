@@ -41,7 +41,6 @@ class AdoptionController extends Controller
 
 
             // verifica se filtro
-
             if ($request->has('name') && !empty($filters['name'])) {
                 $pets->where('name', 'ilike', '%' . $filters['name'] . '%');
             }
@@ -106,12 +105,6 @@ class AdoptionController extends Controller
         return $adoptions;
     }
 
-    /*
-        Realiza a aprovação da adoção do pet
-        cadastrando um cliente
-        O status muda para aprovação.
-    */
-
     public function approve(Request $request)
     {
 
@@ -119,7 +112,6 @@ class AdoptionController extends Controller
 
             DB::beginTransaction();
 
-            // Atualiza o status da adoção para aprovado
             $data = $request->all();
 
             $request->validate([
@@ -133,7 +125,6 @@ class AdoptionController extends Controller
             $adoption->update(['status' => 'APROVADO']);
             $adoption->save();
 
-            // efetivo o cadastro da pessoa que tem intenção de adotar no sistema
             $people = People::create([
                 'name' => $adoption->name,
                 'email' => $adoption->email,
@@ -146,8 +137,6 @@ class AdoptionController extends Controller
                 'bonus' => true
             ]);
 
-            // vincula o pet com cliente criado
-
             $pet = Pet::find($adoption->pet_id);
             $pet->update(['client_id' => $client->id]);
             $pet->save();
@@ -156,8 +145,8 @@ class AdoptionController extends Controller
                 'client_id' => $client->id
             ]);
 
-            Mail::to($people->email, $people->name)
-                ->send(new SendDocuments($people->name, $solicitation->id));
+            //  Mail::to($people->email, $people->name)
+            //      ->send(new SendDocuments($people->name, $solicitation->id));
 
             DB::commit();
 
@@ -171,17 +160,13 @@ class AdoptionController extends Controller
     public function upload(Request $request)
     {
 
-
         $file = $request->file('file');
         $description =  $request->input('description');
         $key =  $request->input('key');
         $id =  $request->input('id');
 
-        /* criar nome amigável arquivo */
         $slugName = Str::of($description)->slug();
         $fileName = $slugName . '.' . $file->extension();
-
-        /* Enviar o arquivo para amazon */
 
         $pathBucket = Storage::disk('s3')->put('documentos', $file);
         $fullPathFile = Storage::disk('s3')->url($pathBucket);

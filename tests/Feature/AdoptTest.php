@@ -6,7 +6,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Tests\TestCase;
 
-class AdoptionTest extends TestCase
+class AdoptTest extends TestCase
 {
     /**
      * A basic feature test example.
@@ -18,6 +18,10 @@ class AdoptionTest extends TestCase
        // adoção está aparecendo a listagens
 
        // aprovar e verificar se foi aprovado de fato
+
+       $response = $this->get('/');
+
+        $response->assertStatus(200);
 
     }
 }

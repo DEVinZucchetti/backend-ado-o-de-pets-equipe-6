@@ -13,13 +13,16 @@ return new class extends Migration
     {
         Schema::create('adoptions', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
-            $table->string('email');
-            $table->string('cpf'); // adicional para o exercício
+            $table->string('name',255);
+            $table->string('email', 255);
+            $table->string('cpf', 14);
             $table->string('contact', 20);
             $table->text('observations');
             $table->enum('status', ['PENDENTE', 'NEGADO', 'APROVADO']);
+            $table->unsignedBigInteger('pet_id');
             $table->timestamps();
+
+            $table->foreign('pet_id')->references('id')->on('pets');
         });
     }
 

@@ -17,7 +17,7 @@ class RaceFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->unique()->name()
+            'name' => fake()->unique()->name() //definições dos dados fakes que serão criados
         ];
     }
 }
